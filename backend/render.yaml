@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: feedback-backend
+    env: node
+    plan: free
+    region: ohio
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
