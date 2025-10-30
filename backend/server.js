@@ -8,11 +8,11 @@ const feedbackRoutes = require('./routes/feedbackRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS configuration
+// CORS configuration with your Netlify URL
 app.use(cors({
   origin: [
-    'http://localhost:3000',
-    'https://your-student-feedback-app.netlify.app'
+    'https://magenta-bunny-2d513f.netlify.app', // Your Netlify frontend
+    'http://localhost:3000'
   ],
   credentials: true
 }));
@@ -75,4 +75,5 @@ app.listen(PORT, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
   console.log(`❤️ Health check: http://localhost:${PORT}/health`);
   console.log(`🔗 API Base: http://localhost:${PORT}/api`);
+  console.log(`🌐 Frontend URL: https://magenta-bunny-2d513f.netlify.app`);
 });

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Use environment variable for API URL, fallback to localhost for development
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:10000/api';
+// Use your live Render backend URL
+const API_BASE_URL = 'https://student-feedback-luct.onrender.com/api';
 
 console.log('API Base URL:', API_BASE_URL);
 
