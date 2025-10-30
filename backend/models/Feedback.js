@@ -1,52 +1,40 @@
 const db = require('../config/database');
 
 class Feedback {
-  static create(feedbackData, callback) {
+  static create(feedbackData) {
     const { studentName, courseCode, comments, rating } = feedbackData;
-    const sql = `INSERT INTO Feedback (studentName, courseCode, comments, rating) 
-                 VALUES (?, ?, ?, ?)`;
+    const stmt = db.prepare(`
+      INSERT INTO Feedback (studentName, courseCode, comments, rating) 
+      VALUES (?, ?, ?, ?)
+    `);
     
-    db.run(sql, [studentName, courseCode, comments, rating], function(err) {
-      callback(err, this.lastID);
-    });
+    const result = stmt.run(studentName, courseCode, comments, rating);
+    return result.lastInsertRowid;
   }
 
-  static getAll(callback) {
-    const sql = `SELECT * FROM Feedback ORDER BY createdAt DESC`;
-    db.all(sql, [], callback);
+  static getAll() {
+    const stmt = db.prepare('SELECT * FROM Feedback ORDER BY createdAt DESC');
+    return stmt.all();
   }
 
-  static delete(id, callback) {
-    const sql = `DELETE FROM Feedback WHERE id = ?`;
-    db.run(sql, [id], callback);
+  static delete(id) {
+    const stmt = db.prepare('DELETE FROM Feedback WHERE id = ?');
+    return stmt.run(id);
   }
 
-  static getStats(callback) {
-    const sql = `
+  static getStats() {
+    const stmt = db.prepare(`
       SELECT 
         COUNT(*) as totalFeedback,
         AVG(CAST(rating AS REAL)) as averageRating,
         COUNT(DISTINCT courseCode) as totalCourses
       FROM Feedback
-    `;
-    db.get(sql, [], (err, row) => {
-      if (err) {
-        return callback(err);
-      }
-      
-      // Ensure proper number formatting
-      const stats = {
-        totalFeedback: row ? parseInt(row.totalFeedback) : 0,
-        averageRating: row ? parseFloat(row.averageRating) : 0,
-        totalCourses: row ? parseInt(row.totalCourses) : 0
-      };
-      
-      callback(null, stats);
-    });
+    `);
+    return stmt.get();
   }
 
-  static getCourseStats(callback) {
-    const sql = `
+  static getCourseStats() {
+    const stmt = db.prepare(`
       SELECT 
         courseCode,
         COUNT(*) as feedbackCount,
@@ -57,31 +45,8 @@ class Feedback {
       FROM Feedback 
       GROUP BY courseCode 
       ORDER BY averageRating DESC, feedbackCount DESC
-    `;
-    
-    console.log('Executing course stats SQL:', sql);
-    
-    db.all(sql, [], (err, rows) => {
-      if (err) {
-        console.error('SQL Error in getCourseStats:', err);
-        return callback(err);
-      }
-      
-      console.log('Raw course stats from DB:', rows);
-      
-      // Format the numbers properly
-      const formattedRows = rows ? rows.map(row => ({
-        courseCode: row.courseCode,
-        feedbackCount: parseInt(row.feedbackCount) || 0,
-        averageRating: parseFloat(row.averageRating) || 0,
-        maxRating: parseInt(row.maxRating) || 0,
-        minRating: parseInt(row.minRating) || 0,
-        uniqueStudents: parseInt(row.uniqueStudents) || 0
-      })) : [];
-      
-      console.log('Formatted course stats:', formattedRows);
-      callback(null, formattedRows);
-    });
+    `);
+    return stmt.all();
   }
 }
 
