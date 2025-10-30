@@ -1,40 +1,52 @@
 const db = require('../config/database');
 
 class Feedback {
-  static create(feedbackData) {
+  static create(feedbackData, callback) {
     const { studentName, courseCode, comments, rating } = feedbackData;
-    const stmt = db.prepare(`
-      INSERT INTO Feedback (studentName, courseCode, comments, rating) 
-      VALUES (?, ?, ?, ?)
-    `);
+    const sql = `INSERT INTO Feedback (studentName, courseCode, comments, rating) 
+                 VALUES (?, ?, ?, ?)`;
     
-    const result = stmt.run(studentName, courseCode, comments, rating);
-    return result.lastInsertRowid;
+    db.run(sql, [studentName, courseCode, comments, rating], function(err) {
+      callback(err, this.lastID);
+    });
   }
 
-  static getAll() {
-    const stmt = db.prepare('SELECT * FROM Feedback ORDER BY createdAt DESC');
-    return stmt.all();
+  static getAll(callback) {
+    const sql = `SELECT * FROM Feedback ORDER BY createdAt DESC`;
+    db.all(sql, [], callback);
   }
 
-  static delete(id) {
-    const stmt = db.prepare('DELETE FROM Feedback WHERE id = ?');
-    return stmt.run(id);
+  static delete(id, callback) {
+    const sql = `DELETE FROM Feedback WHERE id = ?`;
+    db.run(sql, [id], callback);
   }
 
-  static getStats() {
-    const stmt = db.prepare(`
+  static getStats(callback) {
+    const sql = `
       SELECT 
         COUNT(*) as totalFeedback,
         AVG(CAST(rating AS REAL)) as averageRating,
         COUNT(DISTINCT courseCode) as totalCourses
       FROM Feedback
-    `);
-    return stmt.get();
+    `;
+    db.get(sql, [], (err, row) => {
+      if (err) {
+        return callback(err);
+      }
+      
+      // Ensure proper number formatting
+      const stats = {
+        totalFeedback: row ? parseInt(row.totalFeedback) : 0,
+        averageRating: row ? parseFloat(row.averageRating) : 0,
+        totalCourses: row ? parseInt(row.totalCourses) : 0
+      };
+      
+      callback(null, stats);
+    });
   }
 
-  static getCourseStats() {
-    const stmt = db.prepare(`
+  static getCourseStats(callback) {
+    const sql = `
       SELECT 
         courseCode,
         COUNT(*) as feedbackCount,
@@ -45,8 +57,24 @@ class Feedback {
       FROM Feedback 
       GROUP BY courseCode 
       ORDER BY averageRating DESC, feedbackCount DESC
-    `);
-    return stmt.all();
+    `;
+    db.all(sql, [], (err, rows) => {
+      if (err) {
+        return callback(err);
+      }
+      
+      // Format the numbers properly
+      const formattedRows = rows ? rows.map(row => ({
+        courseCode: row.courseCode,
+        feedbackCount: parseInt(row.feedbackCount) || 0,
+        averageRating: parseFloat(row.averageRating) || 0,
+        maxRating: parseInt(row.maxRating) || 0,
+        minRating: parseInt(row.minRating) || 0,
+        uniqueStudents: parseInt(row.uniqueStudents) || 0
+      })) : [];
+      
+      callback(null, formattedRows);
+    });
   }
 }
 
