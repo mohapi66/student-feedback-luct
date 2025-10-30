@@ -1,52 +1,83 @@
-const db = require('../config/database');
+const { getDB } = require('../config/database');
 
 class Feedback {
-  static create(feedbackData, callback) {
-    const { studentName, courseCode, comments, rating } = feedbackData;
-    const sql = `INSERT INTO Feedback (studentName, courseCode, comments, rating) 
-                 VALUES (?, ?, ?, ?)`;
+  static create(feedbackData) {
+    const db = getDB();
+    if (!db) throw new Error('Database not initialized');
     
-    db.run(sql, [studentName, courseCode, comments, rating], function(err) {
-      callback(err, this.lastID);
+    const { studentName, courseCode, comments, rating } = feedbackData;
+    
+    const stmt = db.prepare(`
+      INSERT INTO Feedback (studentName, courseCode, comments, rating) 
+      VALUES (?, ?, ?, ?)
+    `);
+    
+    stmt.run([studentName, courseCode, comments, rating]);
+    stmt.free();
+    
+    return db.exec("SELECT last_insert_rowid() as id")[0].values[0][0];
+  }
+
+  static getAll() {
+    const db = getDB();
+    if (!db) throw new Error('Database not initialized');
+    
+    const result = db.exec(`
+      SELECT * FROM Feedback ORDER BY createdAt DESC
+    `);
+    
+    if (result.length === 0) return [];
+    
+    const columns = result[0].columns;
+    return result[0].values.map(row => {
+      const obj = {};
+      columns.forEach((col, index) => {
+        obj[col] = row[index];
+      });
+      return obj;
     });
   }
 
-  static getAll(callback) {
-    const sql = `SELECT * FROM Feedback ORDER BY createdAt DESC`;
-    db.all(sql, [], callback);
+  static delete(id) {
+    const db = getDB();
+    if (!db) throw new Error('Database not initialized');
+    
+    const stmt = db.prepare('DELETE FROM Feedback WHERE id = ?');
+    stmt.run([id]);
+    stmt.free();
+    
+    return true;
   }
 
-  static delete(id, callback) {
-    const sql = `DELETE FROM Feedback WHERE id = ?`;
-    db.run(sql, [id], callback);
-  }
-
-  static getStats(callback) {
-    const sql = `
+  static getStats() {
+    const db = getDB();
+    if (!db) throw new Error('Database not initialized');
+    
+    const result = db.exec(`
       SELECT 
         COUNT(*) as totalFeedback,
         AVG(CAST(rating AS REAL)) as averageRating,
         COUNT(DISTINCT courseCode) as totalCourses
       FROM Feedback
-    `;
-    db.get(sql, [], (err, row) => {
-      if (err) {
-        return callback(err);
-      }
-      
-      // Ensure proper number formatting
-      const stats = {
-        totalFeedback: row ? parseInt(row.totalFeedback) : 0,
-        averageRating: row ? parseFloat(row.averageRating) : 0,
-        totalCourses: row ? parseInt(row.totalCourses) : 0
-      };
-      
-      callback(null, stats);
-    });
+    `);
+    
+    if (result.length === 0) {
+      return { totalFeedback: 0, averageRating: 0, totalCourses: 0 };
+    }
+    
+    const row = result[0].values[0];
+    return {
+      totalFeedback: parseInt(row[0]) || 0,
+      averageRating: parseFloat(row[1]) || 0,
+      totalCourses: parseInt(row[2]) || 0
+    };
   }
 
-  static getCourseStats(callback) {
-    const sql = `
+  static getCourseStats() {
+    const db = getDB();
+    if (!db) throw new Error('Database not initialized');
+    
+    const result = db.exec(`
       SELECT 
         courseCode,
         COUNT(*) as feedbackCount,
@@ -57,23 +88,26 @@ class Feedback {
       FROM Feedback 
       GROUP BY courseCode 
       ORDER BY averageRating DESC, feedbackCount DESC
-    `;
-    db.all(sql, [], (err, rows) => {
-      if (err) {
-        return callback(err);
-      }
+    `);
+    
+    if (result.length === 0) return [];
+    
+    const columns = result[0].columns;
+    return result[0].values.map(row => {
+      const obj = {};
+      columns.forEach((col, index) => {
+        obj[col] = row[index];
+      });
       
-      // Format the numbers properly
-      const formattedRows = rows ? rows.map(row => ({
-        courseCode: row.courseCode,
-        feedbackCount: parseInt(row.feedbackCount) || 0,
-        averageRating: parseFloat(row.averageRating) || 0,
-        maxRating: parseInt(row.maxRating) || 0,
-        minRating: parseInt(row.minRating) || 0,
-        uniqueStudents: parseInt(row.uniqueStudents) || 0
-      })) : [];
-      
-      callback(null, formattedRows);
+      // Ensure numbers are properly formatted
+      return {
+        courseCode: obj.courseCode,
+        feedbackCount: parseInt(obj.feedbackCount) || 0,
+        averageRating: parseFloat(obj.averageRating) || 0,
+        maxRating: parseInt(obj.maxRating) || 0,
+        minRating: parseInt(obj.minRating) || 0,
+        uniqueStudents: parseInt(obj.uniqueStudents) || 0
+      };
     });
   }
 }

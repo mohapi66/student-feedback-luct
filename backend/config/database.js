@@ -1,44 +1,43 @@
-const sqlite3 = require('sqlite3').verbose();
+const initSqlJs = require('sql.js');
+const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-// For production, use in-memory database to avoid file system issues
-// For development, use file-based database
-let dbPath;
+let db;
 
-if (process.env.NODE_ENV === 'production') {
-  dbPath = ':memory:'; // In-memory for production (Render)
-  console.log('Using in-memory SQLite database for production');
-} else {
-  dbPath = path.join(__dirname, '..', 'feedback.db'); // File-based for development
-  console.log('Using file-based SQLite database for development:', dbPath);
-}
-
-console.log('Database path:', dbPath);
-
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err.message);
-    // Don't exit - continue without database for production
-  } else {
-    console.log('Connected to SQLite database');
+const initializeDatabase = async () => {
+  try {
+    const SQL = await initSqlJs();
+    
+    // Always use in-memory database for simplicity
+    db = new SQL.Database();
+    
+    console.log('Using in-memory SQLite database with sql.js');
     
     // Create Feedback table
-    db.run(`CREATE TABLE IF NOT EXISTS Feedback (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      studentName TEXT NOT NULL,
-      courseCode TEXT NOT NULL,
-      comments TEXT NOT NULL,
-      rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-      if (err) {
-        console.error('Error creating table:', err.message);
-      } else {
-        console.log('Feedback table ready');
-      }
-    });
+    db.run(`
+      CREATE TABLE IF NOT EXISTS Feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        studentName TEXT NOT NULL,
+        courseCode TEXT NOT NULL,
+        comments TEXT NOT NULL,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    console.log('Feedback table ready');
+    return db;
+  } catch (error) {
+    console.error('Error initializing database:', error);
+    throw error;
   }
-});
+};
 
-module.exports = db;
+// Initialize database immediately
+initializeDatabase().catch(console.error);
+
+module.exports = {
+  getDB: () => db,
+  initializeDatabase
+};

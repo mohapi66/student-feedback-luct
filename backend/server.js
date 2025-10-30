@@ -2,22 +2,29 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const { initializeDatabase } = require('./config/database');
 const feedbackRoutes = require('./routes/feedbackRoutes');
-const db = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS configuration for deployment
+// CORS configuration
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://your-student-feedback-app.netlify.app' // Update after deployment
+    'https://your-student-feedback-app.netlify.app'
   ],
   credentials: true
 }));
 
 app.use(express.json());
+
+// Initialize database before starting server
+initializeDatabase().then(() => {
+  console.log('Database initialized successfully');
+}).catch(err => {
+  console.error('Failed to initialize database:', err);
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
